@@ -9,7 +9,7 @@ import os
 
 env.hosts = ["100.26.133.136", "54.221.184.20"]
 env.user = "ubuntu"
-env.key_filename = "~/keys/aprkey"
+
 
 def do_pack():
     """

@@ -1,40 +1,52 @@
 #!/usr/bin/python3
-"""Fabric script to deploy archives to web servers
 """
-from fabric.api import *
-from datetime import datetime
-from os import path
+Fabric script that distributes an archive to your web servers
+"""
 
-env.hosts = ['100.26.133.136', '54.221.184.20']
-env.user = 'ubuntu'
-env.key_filename = '~/keys/aprkey'
+from datetime import datetime
+from fabric.api import *
+import os
+
+env.hosts = ["100.26.133.136", "54.221.184.20"]
+env.user = "ubuntu"
+env.key_filename = "~/keys/aprkey"
+
+def do_pack():
+    """
+        return the archive path if archive has generated correctly.
+    """
+
+    local("mkdir -p versions")
+    date = datetime.now().strftime("%Y%m%d%H%M%S")
+    archived_f_path = "versions/web_static_{}.tgz".format(date)
+    t_gzip_archive = local("tar -cvzf {} web_static".format(archived_f_path))
+
+    if t_gzip_archive.succeeded:
+        return archived_f_path
+    else:
+        return None
+
 
 def do_deploy(archive_path):
-    """Distribute archive to web servers
     """
-    try:
-        if not path.exists(archive_path):
-            return False
+        Distribute archive.
+    """
+    if os.path.exists(archive_path):
+        archived_file = archive_path[9:]
+        newest_version = "/data/web_static/releases/" + archived_file[:-4]
+        archived_file = "/tmp/" + archived_file
+        put(archive_path, "/tmp/")
+        run("sudo mkdir -p {}".format(newest_version))
+        run("sudo tar -xzf {} -C {}/".format(archived_file,
+                                             newest_version))
+        run("sudo rm {}".format(archived_file))
+        run("sudo mv {}/web_static/* {}".format(newest_version,
+                                                newest_version))
+        run("sudo rm -rf {}/web_static".format(newest_version))
+        run("sudo rm -rf /data/web_static/current")
+        run("sudo ln -s {} /data/web_static/current".format(newest_version))
 
-        # Upload archive
-        put(archive_path, '/tmp/')
-
-        # Extract archive and delete .tgz
-        filename = archive_path.split('/')[-1]
-        foldername = filename.split('.')[0]
-        release_path = '/data/web_static/releases/' + foldername
-
-        run('sudo mkdir -p {}'.format(release_path))
-        run('sudo tar -xzf /tmp/{} -C {}'.format(filename, release_path))
-        run('sudo rm /tmp/{}'.format(filename))
-
-        # Remove existing symbolic link
-        run('sudo rm -rf /data/web_static/current')
-
-        # Create new symbolic link
-        run('sudo ln -s {} /data/web_static/current'.format(release_path))
-
+        print("New version deployed!")
         return True
-    except:
-        return False
 
+    return False
